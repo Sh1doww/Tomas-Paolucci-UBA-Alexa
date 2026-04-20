@@ -1,0 +1,65 @@
+const Groq = require("groq-sdk");
+
+const client = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
+
+exports.handler = async (event) => {
+  const requestType = event.request.type;
+
+  if (requestType === "LaunchRequest") {
+    return buildResponse(
+      "¡Hola! Soy tu asistente con inteligencia artificial. ¿En qué te puedo ayudar?"
+    );
+  }
+
+  if (requestType === "SessionEndedRequest") {
+    return buildResponse("¡Hasta luego!");
+  }
+
+  if (requestType === "IntentRequest") {
+    const intentName = event.request.intent.name;
+
+    if (intentName === "PreguntarIntent") {
+      const query = event.request.intent.slots.query.value;
+
+      const completion = await client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 300,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Eres un asistente de voz conectado a Alexa. Respondé siempre en español, de forma clara y concisa, en no más de 3 oraciones cortas.",
+          },
+          {
+            role: "user",
+            content: query,
+          },
+        ],
+      });
+
+      const respuesta = completion.choices[0].message.content;
+      return buildResponse(respuesta);
+    }
+
+    if (intentName === "AMAZON.StopIntent" || intentName === "AMAZON.CancelIntent") {
+      return buildResponse("¡Hasta luego!");
+    }
+  }
+
+  return buildResponse("No entendí tu pregunta, intentá de nuevo.");
+};
+
+function buildResponse(text) {
+  return {
+    version: "1.0",
+    response: {
+      outputSpeech: {
+        type: "PlainText",
+        text: text,
+      },
+      shouldEndSession: false,
+    },
+  };
+}
